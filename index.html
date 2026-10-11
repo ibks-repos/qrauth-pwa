@@ -3,42 +3,21 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' blob: data:; media-src 'self' blob: mediastream:; worker-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self'; img-src 'self' blob: data:; media-src 'self' blob: mediastream:; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'" />
     <meta name="referrer" content="no-referrer" />
     <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
     <meta name="apple-mobile-web-app-title" content="QRAuth" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="format-detection" content="telephone=no" />
     <link rel="manifest" href="manifest.webmanifest" />
     <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
     <link rel="icon" href="icons/icon-192.png" />
     <title>QRAuth</title>
-    <style>
-      body { font: 15px/1.4 system-ui, -apple-system, sans-serif; margin: 0; padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom)); }
-      h1 { font-size: 28px; margin: 8px 0 12px; }
-      button, label.button { display: inline-block; font: inherit; padding: 10px 14px; margin: 4px 4px 4px 0; border-radius: 999px; border: 0; background: #0a84ff; color: #fff; }
-      pre { white-space: pre-wrap; word-break: break-all; font-size: 12px; background: rgba(127,127,127,.12); padding: 12px; border-radius: 12px; }
-      video { width: 100%; max-height: 50vh; object-fit: cover; border-radius: 16px; background: #000; margin-top: 8px; }
-      input[type=file] { display: none; }
-    </style>
   </head>
   <body>
-    <h1>QRAuth feasibility check</h1>
-    <p>Open this page from the Home Screen icon. After the first run, close the app completely and open it again.</p>
-    <div>
-      <button id="passkeyCreate">Create passkey</button>
-      <button id="passkeyGet">Face ID: get PRF</button>
-    </div>
-    <div>
-      <button id="camera">Start camera</button>
-      <label class="button" for="photoInput">Take photo</label>
-      <input id="photoInput" type="file" accept="image/*" capture="environment" />
-    </div>
-    <video id="video" playsinline muted></video>
-    <pre id="report"></pre>
-    <div>
-      <button id="copy">Copy report</button>
-      <button id="reset">Reset checks</button>
-    </div>
-    <script type="module" src="/src/spike.ts"></script>
+    <div id="app"></div>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

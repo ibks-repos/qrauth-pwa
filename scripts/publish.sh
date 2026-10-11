@@ -21,6 +21,9 @@ if [ ! -d "$WORK/.git" ]; then
 fi
 git -C "$WORK" config user.name "$AUTHOR_NAME"
 git -C "$WORK" config user.email "$AUTHOR_EMAIL"
+# GIT_AUTHOR_* and GIT_COMMITTER_* in the environment override git config, so set them too.
+export GIT_AUTHOR_NAME="$AUTHOR_NAME" GIT_AUTHOR_EMAIL="$AUTHOR_EMAIL"
+export GIT_COMMITTER_NAME="$AUTHOR_NAME" GIT_COMMITTER_EMAIL="$AUTHOR_EMAIL"
 git -C "$WORK" fetch --quiet origin
 if git -C "$WORK" rev-parse --verify --quiet origin/main >/dev/null; then
 	git -C "$WORK" checkout --quiet -B main origin/main
@@ -42,7 +45,11 @@ if git -C "$WORK" diff --cached --quiet; then
 	exit 0
 fi
 git -C "$WORK" commit --quiet -m "$message" -m "Source: course repository, Lab6/pwa at $source_rev$dirty."
-git -C "$WORK" log --oneline -1
+git -C "$WORK" log -1 --format='%h %s (author %an <%ae>, committer %cn <%ce>)'
+if git -C "$WORK" log -1 --format='%an %ae %cn %ce' | grep -qv "^$AUTHOR_NAME $AUTHOR_EMAIL $AUTHOR_NAME $AUTHOR_EMAIL\$"; then
+	echo "refusing to push: the commit identity is not $AUTHOR_NAME <$AUTHOR_EMAIL>" >&2
+	exit 1
+fi
 git -C "$WORK" diff --stat HEAD~1 2>/dev/null | tail -1 || true
 
 if [ "$push" = 1 ]; then

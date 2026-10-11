@@ -104,7 +104,7 @@ export async function evaluatePrf(credentialId: Uint8Array): Promise<Uint8Array>
   return new Uint8Array(first);
 }
 
-/** AES-GCM key encryption key from a PRF output (non-extractable). */
+/** AES-GCM key encryption key from a PRF output (non-extractable); encrypt/decrypt serve the key check value. */
 export async function deriveKek(prfOutput: Uint8Array): Promise<CryptoKey> {
   const ikm = await crypto.subtle.importKey("raw", prfOutput as BufferSource, "HKDF", false, ["deriveKey"]);
   return crypto.subtle.deriveKey(
@@ -112,7 +112,7 @@ export async function deriveKek(prfOutput: Uint8Array): Promise<CryptoKey> {
     ikm,
     { name: "AES-GCM", length: 256 },
     false,
-    ["wrapKey", "unwrapKey"],
+    ["wrapKey", "unwrapKey", "encrypt", "decrypt"],
   );
 }
 
