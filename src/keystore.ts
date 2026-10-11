@@ -6,6 +6,10 @@
 // the account name); only {iv, ciphertext} is stored. Answering needs Face ID, which unwraps it into a
 // non-extractable key in memory.
 // The raw secret exists in memory only between scanning and storing; the buffer is zeroed afterwards.
+//
+// A new secret is "pending" until the user confirms that the server saved it. pam_qrauth keeps the old secret
+// until the confirmation challenge is answered, and the app cannot see the outcome; so the previous secret is kept
+// with the account and restored when the user reports that the change failed (for a new account: it is removed).
 
 import * as db from "./db";
 import { computeWithKey, importHmacKey, parseSuite } from "./ocra";
@@ -19,11 +23,24 @@ export interface AccountInfo {
   suite: string;
   added: string;
   protection: Protection;
+  /** The server has not been confirmed to have saved this secret yet. */
+  pending: boolean;
+  /** A previous secret is kept until the pending one is confirmed. */
+  hasPrevious: boolean;
 }
 
-interface AccountRecord extends AccountInfo {
+interface StoredSecret {
+  suite: string;
+  added: string;
+  protection: Protection;
   key?: CryptoKey;
   wrapped?: { iv: Uint8Array; data: ArrayBuffer };
+}
+
+interface AccountRecord extends StoredSecret {
+  account: string;
+  pending?: boolean;
+  previous?: StoredSecret | null;
 }
 
 export class UnknownAccountError extends Error {
@@ -36,8 +53,12 @@ function aad(account: string): Uint8Array {
   return new TextEncoder().encode(`qrauth-pwa account ${account}`);
 }
 
-function info({ account, suite, added, protection }: AccountRecord): AccountInfo {
-  return { account, suite, added, protection };
+function info({ account, suite, added, protection, pending, previous }: AccountRecord): AccountInfo {
+  return { account, suite, added, protection, pending: pending === true, hasPrevious: !!previous };
+}
+
+function secretOf({ suite, added, protection, key, wrapped }: StoredSecret): StoredSecret {
+  return { suite, added, protection, key, wrapped };
 }
 
 export async function listAccounts(): Promise<AccountInfo[]> {
@@ -50,12 +71,24 @@ export async function getAccount(account: string): Promise<AccountInfo | undefin
   return record && info(record);
 }
 
-/** Store the secret of an enrollment code; replaces an existing account. Zeroes the secret buffer. */
+/**
+ * Store the secret of an enrollment code as pending; an existing confirmed secret becomes the previous one
+ * (over a pending account, the previous secret stays the last confirmed one). Zeroes the secret buffer.
+ */
 export async function enroll(enrollment: Enrollment, protection: Protection): Promise<AccountInfo> {
   const { account, suite, secret } = enrollment;
   const hash = parseSuite(suite).hash;
   try {
-    const record: AccountRecord = { account, suite, added: new Date().toISOString(), protection };
+    const existing = await db.get<AccountRecord>("accounts", account);
+    const previous = existing ? (existing.pending ? (existing.previous ?? null) : secretOf(existing)) : null;
+    const record: AccountRecord = {
+      account,
+      suite,
+      added: new Date().toISOString(),
+      protection,
+      pending: true,
+      previous,
+    };
     if (protection === "device") {
       record.key = await importHmacKey(secret, hash, false);
     } else {
@@ -102,4 +135,26 @@ export async function respond(challenge: Challenge): Promise<string> {
 
 export async function removeAccount(account: string): Promise<void> {
   await db.remove("accounts", account);
+}
+
+/** The server saved the pending secret: forget the previous one. */
+export async function confirmPending(account: string): Promise<void> {
+  const record = await db.get<AccountRecord>("accounts", account);
+  if (!record?.pending) return;
+  await db.put("accounts", { ...secretOf(record), account, pending: false, previous: null });
+}
+
+/**
+ * The server kept its old secret: restore the previous secret, or remove an account that had none.
+ * The result says which of the two happened.
+ */
+export async function rollbackPending(account: string): Promise<"restored" | "removed" | "none"> {
+  const record = await db.get<AccountRecord>("accounts", account);
+  if (!record?.pending) return "none";
+  if (record.previous) {
+    await db.put("accounts", { ...secretOf(record.previous), account, pending: false, previous: null });
+    return "restored";
+  }
+  await db.remove("accounts", account);
+  return "removed";
 }

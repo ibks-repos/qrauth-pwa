@@ -28,7 +28,9 @@ function accountRow(account: AccountInfo): HTMLElement {
       "div",
       { class: "grow" },
       h("div", { class: "title" }, user),
-      h("div", { class: "subtitle" }, `${host}, added ${formatDate(account.added)}`),
+      account.pending
+        ? h("div", { class: "subtitle" }, `${host}, `, h("span", { class: "pending-label" }, "change not confirmed"))
+        : h("div", { class: "subtitle" }, `${host}, added ${formatDate(account.added)}`),
     ),
     account.protection === "faceid" ? h("span", { class: "badge", title: "Protected with Face ID" }, icon("faceid")) : null,
     icon("chevron", "chevron"),

@@ -3,6 +3,7 @@
 import { getAccount, removeAccount } from "../keystore";
 import { addLog } from "../log";
 import { avatar, formatDateTime, h } from "./dom";
+import { confirmChangeCard } from "./flows";
 import { icon } from "./icons";
 import { openSheet, showAlert, toast } from "./overlay";
 
@@ -20,8 +21,10 @@ export async function showAccount(name: string, onChanged: () => void): Promise<
       { class: "list" },
       row("Added", formatDateTime(account.added)),
       row("Protection", account.protection === "faceid" ? "Face ID" : "This device"),
+      row("State", account.pending ? (account.hasPrevious ? "Not confirmed, previous secret kept" : "Not confirmed") : "Confirmed"),
       row("Algorithm", account.suite, true),
     ),
+    account.pending ? confirmChangeCard(account, () => void sheet.close()) : null,
     account.protection === "device"
       ? h("p", { class: "section-footer" }, "To protect this account with Face ID, turn Face ID on in About and enroll it again.")
       : null,

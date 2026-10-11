@@ -6,6 +6,8 @@ import { fileURLToPath } from "node:url";
 
 const ENROLL = "qrauth:1:e:alice@lfs-lab:AAAQEAYEAUDAOCAJBIFQYDIOB4IBCEQTCQKRMFYYDENBWHA5DYPQ:OCRA-1:HOTP-SHA256-6:QH40";
 const CHALLENGE = "qrauth:1:c:alice@lfs-lab:login:b25a8062ea91212f9fed2d8fb91048db761c8bc1";
+// Second secret: bytes 0x20..0x3f; the example challenge gives 706962 (client/ocra.py).
+const ENROLL_2 = "qrauth:1:e:alice@lfs-lab:EAQSEIZEEUTCOKBJFIVSYLJOF4YDCMRTGQ2TMNZYHE5DWPB5HY7Q:OCRA-1:HOTP-SHA256-6:QH40";
 const fixture = (name: string) => fileURLToPath(new URL(`../fixtures/${name}`, import.meta.url));
 
 // Behave like the installed Home Screen app (the iPhone emulation reports a Safari tab).
@@ -27,7 +29,7 @@ async function paste(page: Page, payload: string): Promise<void> {
   await page.getByRole("button", { name: "Use" }).click();
 }
 
-test("enroll, answer, survive a reload, replace, delete", async ({ page }) => {
+test("enroll, confirm, survive a reload, replace, roll back, delete", async ({ page }) => {
   await page.goto("./");
   await expect(page.getByText("No accounts")).toBeVisible();
   await shot(page, "01-empty");
@@ -44,38 +46,74 @@ test("enroll, answer, survive a reload, replace, delete", async ({ page }) => {
   await expect(page.getByText("Secret stored on this device.")).toBeVisible();
   await shot(page, "04-enrolled");
   await page.getByRole("button", { name: "Done" }).click();
-  await expect(page.locator("#content").getByRole("listitem").filter({ hasText: "alice" })).toBeVisible();
-  await shot(page, "05-home");
+  await expect(page.getByText("change not confirmed")).toBeVisible();
 
+  // The confirmation challenge: the code, then the question about the terminal output.
   await paste(page, CHALLENGE);
   await expect(page.getByLabel("Code 6 0 6 4 4 1")).toBeVisible();
   await expect(page.getByText("Console login")).toBeVisible();
-  await shot(page, "06-code");
-  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByRole("button", { name: "Done" })).toHaveCount(0);
+  await shot(page, "05-confirm");
+  await page.getByRole("button", { name: "Saved" }).click();
+  await expect(page.getByText("change not confirmed")).toHaveCount(0);
+  await shot(page, "06-home");
 
   // The non-extractable CryptoKey comes back from IndexedDB after a reload.
   await page.reload();
   await paste(page, CHALLENGE.replace("b25a8062ea91212f9fed2d8fb91048db761c8bc1", "0".repeat(40)));
   await expect(page.getByLabel("Code 3 5 4 1 1 6")).toBeVisible();
+  await shot(page, "07-code");
   await page.getByRole("button", { name: "Done" }).click();
 
-  await paste(page, ENROLL);
+  // A change that the server did not save: the previous secret comes back.
+  await paste(page, ENROLL_2);
   await expect(page.getByText("This account already has a secret.", { exact: false })).toBeVisible();
-  await shot(page, "07-replace");
+  await shot(page, "08-replace");
   await page.getByRole("button", { name: "Replace secret" }).click();
+  await page.getByRole("button", { name: "Done" }).click();
+  await paste(page, CHALLENGE);
+  await expect(page.getByLabel("Code 7 0 6 9 6 2")).toBeVisible();
+  await page.getByRole("button", { name: "Not changed" }).click();
+  await expect(page.getByText("Previous secret restored")).toBeVisible();
+  await paste(page, CHALLENGE);
+  await expect(page.getByLabel("Code 6 0 6 4 4 1")).toBeVisible();
+  await page.getByRole("button", { name: "Done" }).click();
+
+  // A change confirmed later from the account sheet.
+  await paste(page, ENROLL_2);
+  await page.getByRole("button", { name: "Replace secret" }).click();
+  await page.getByRole("button", { name: "Done" }).click();
+  await page.locator("#content").getByRole("listitem").filter({ hasText: "alice" }).click();
+  await expect(page.getByText("Not confirmed, previous secret kept")).toBeVisible();
+  await shot(page, "09-account-pending");
+  await page.getByRole("button", { name: "Saved" }).click();
+  await paste(page, CHALLENGE);
+  await expect(page.getByLabel("Code 7 0 6 9 6 2")).toBeVisible();
   await page.getByRole("button", { name: "Done" }).click();
 
   await page.getByRole("button", { name: "Log" }).click();
-  await expect(page.getByText("Secret replaced")).toBeVisible();
-  await expect(page.getByText("Code shown").first()).toBeVisible();
-  await shot(page, "08-log");
+  await expect(page.getByText("Change undone")).toBeVisible();
+  await expect(page.getByText("Change confirmed").first()).toBeVisible();
+  await expect(page.getByText("Secret replaced").first()).toBeVisible();
+  await shot(page, "10-log");
   await page.getByRole("button", { name: "Close" }).click();
 
   await page.locator("#content").getByRole("listitem").filter({ hasText: "alice" }).click();
-  await shot(page, "09-account");
+  await shot(page, "11-account");
   await page.getByRole("button", { name: "Delete account" }).click();
-  await shot(page, "10-delete-alert");
+  await shot(page, "12-delete-alert");
   await page.getByRole("button", { name: "Delete", exact: true }).click();
+  await expect(page.getByText("No accounts")).toBeVisible();
+});
+
+test("a new account is removed when the server did not save it", async ({ page }) => {
+  await page.goto("./");
+  await paste(page, ENROLL);
+  await page.getByRole("button", { name: "Store secret" }).click();
+  await page.getByRole("button", { name: "Done" }).click();
+  await paste(page, CHALLENGE);
+  await expect(page.getByText("Not changed removes this account from the app.")).toBeVisible();
+  await page.getByRole("button", { name: "Not changed" }).click();
   await expect(page.getByText("No accounts")).toBeVisible();
 });
 
@@ -84,7 +122,7 @@ test("refuses unknown accounts and foreign codes", async ({ page }) => {
   await paste(page, CHALLENGE.replace("alice", "bob"));
   await expect(page.getByText("This app has no secret for the account", { exact: false })).toBeVisible();
   await expect(page.locator(".code-digits")).toHaveCount(0);
-  await shot(page, "11-unknown");
+  await shot(page, "13-unknown");
   await page.getByRole("button", { name: "Close" }).click();
 
   await page.getByRole("button", { name: "Scan", exact: true }).click();
@@ -109,7 +147,7 @@ test("about", async ({ page }) => {
   await page.getByRole("button", { name: "About" }).click();
   await page.getByRole("button", { name: "Run OCRA self-test" }).click();
   await expect(page.getByText("4 of 4 vectors passed")).toBeVisible();
-  await shot(page, "12-about");
+  await shot(page, "14-about");
 });
 
 test("install hint in a Safari tab", async ({ page }) => {

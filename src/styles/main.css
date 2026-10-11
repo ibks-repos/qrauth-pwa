@@ -773,6 +773,38 @@ textarea {
   user-select: text;
 }
 
+.confirm-card {
+  margin-top: 18px;
+  padding: 16px;
+  border-radius: 26px;
+  text-align: center;
+  background: color-mix(in srgb, var(--orange) 13%, transparent);
+}
+
+.confirm-card h4 {
+  font-size: 17px;
+  margin: 0 0 6px;
+}
+
+.confirm-card p {
+  font-size: 14px;
+  color: var(--label-2);
+  margin: 0;
+}
+
+.confirm-card .actions {
+  margin-top: 14px;
+}
+
+.confirm-card .footnote {
+  margin-top: 10px;
+  font-size: 13px;
+}
+
+.pending-label {
+  color: var(--orange);
+}
+
 /* Alerts */
 
 .alert-layer {

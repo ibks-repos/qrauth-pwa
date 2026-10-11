@@ -1,6 +1,15 @@
 // What happens after a code is scanned: show a response, or store the secret of an enrollment code.
 
-import { enroll, getAccount, respond, UnknownAccountError, type Protection } from "../keystore";
+import {
+  confirmPending,
+  enroll,
+  getAccount,
+  respond,
+  rollbackPending,
+  UnknownAccountError,
+  type AccountInfo,
+  type Protection,
+} from "../keystore";
 import { addLog } from "../log";
 import { serviceLabel, serviceTimeout, type Challenge, type Enrollment } from "../payload";
 import { getPasskey, hasFreshKek } from "../session";
@@ -13,6 +22,48 @@ let onAccountsChanged: () => void = () => {};
 
 export function setAccountsChangedHandler(handler: () => void): void {
   onAccountsChanged = handler;
+}
+
+/**
+ * The question that ends a secret change: pam_qrauth prints "The new secret is saved" or "The secret was not
+ * changed" after the confirmation challenge, and only the user sees which. onDone runs after an answer.
+ */
+export function confirmChangeCard(account: AccountInfo, onDone: () => void): HTMLElement {
+  const card = h(
+    "div",
+    { class: "confirm-card" },
+    h("h4", null, "Did the server save the new secret?"),
+    h(
+      "p",
+      null,
+      "After the confirmation code the terminal says \u201cThe new secret is saved\u201d or \u201cThe secret was not changed\u201d.",
+    ),
+  );
+  const answer = async (saved: boolean) => {
+    if (saved) {
+      await confirmPending(account.account);
+      void addLog({ kind: "confirmed", account: account.account });
+      toast("Change confirmed", "ok");
+    } else {
+      const result = await rollbackPending(account.account);
+      void addLog({ kind: "rolled-back", account: account.account });
+      toast(result === "removed" ? "Account removed" : "Previous secret restored", "ok");
+    }
+    onAccountsChanged();
+    onDone();
+  };
+  card.append(
+    h(
+      "div",
+      { class: "actions row-actions" },
+      h("button", { class: "capsule-button small secondary-button press", onclick: () => void answer(false) }, "Not changed"),
+      h("button", { class: "capsule-button small glass tinted press", onclick: () => void answer(true) }, "Saved"),
+    ),
+  );
+  if (!account.hasPrevious) {
+    card.append(h("p", { class: "footnote" }, "Not changed removes this account from the app."));
+  }
+  return card;
 }
 
 export function startScan(hint = "Point at the QR code in the terminal"): void {
@@ -91,25 +142,30 @@ export async function showCode(challenge: Challenge): Promise<void> {
       const code = await respond(challenge);
       void addLog({ kind: "code", account: challenge.account, service: challenge.service });
       area.replaceChildren(digits(code));
+      const copy = h(
+        "button",
+        {
+          class: "capsule-button small secondary-button press",
+          onclick: () =>
+            void navigator.clipboard.writeText(code).then(
+              () => toast("Copied", "ok"),
+              () => toast("Could not copy", "error"),
+            ),
+        },
+        icon("copy"),
+        "Copy",
+      );
+      // A pending secret change ends with the question instead of Done: type the code, read the terminal, answer.
       actions.replaceChildren(
         h(
           "div",
           { class: "actions row-actions" },
-          h(
-            "button",
-            {
-              class: "capsule-button small secondary-button press",
-              onclick: () =>
-                void navigator.clipboard.writeText(code).then(
-                  () => toast("Copied", "ok"),
-                  () => toast("Could not copy", "error"),
-                ),
-            },
-            icon("copy"),
-            "Copy",
-          ),
-          h("button", { class: "capsule-button small glass tinted press", onclick: () => void sheet.close() }, "Done"),
+          copy,
+          account.pending
+            ? null
+            : h("button", { class: "capsule-button small glass tinted press", onclick: () => void sheet.close() }, "Done"),
         ),
+        account.pending ? confirmChangeCard(account, () => void sheet.close()) : "",
       );
     } catch (error) {
       if (error instanceof UnknownAccountError) {
@@ -183,6 +239,7 @@ export async function showEnrollment(enrollment: Enrollment): Promise<void> {
         { class: "steps" },
         h("li", null, "Press Enter in the terminal."),
         h("li", null, "Scan the confirmation code and type the response."),
+        h("li", null, "Tell the app whether the terminal says the new secret is saved."),
       ),
       h(
         "div",
@@ -234,7 +291,11 @@ export async function showEnrollment(enrollment: Enrollment): Promise<void> {
       { class: "message" },
       h("h3", null, enrollment.account),
       existing
-        ? h("p", null, "This account already has a secret. The server revoked it when it showed this code; the new secret replaces it.")
+        ? h(
+            "p",
+            null,
+            "This account already has a secret. The server keeps using it until you answer the confirmation code, so the app keeps it too until you confirm the change.",
+          )
         : h("p", null, "The server showed a new secret for this account. Store it to answer its codes."),
     ),
     h("div", { class: "actions" }, ...buttons),

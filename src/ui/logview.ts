@@ -10,6 +10,8 @@ const KINDS: Record<LogEntry["kind"], { title: string; icon: IconName }> = {
   code: { title: "Code shown", icon: "key" },
   enrolled: { title: "Account enrolled", icon: "plus" },
   replaced: { title: "Secret replaced", icon: "key" },
+  confirmed: { title: "Change confirmed", icon: "check" },
+  "rolled-back": { title: "Change undone", icon: "warning" },
   removed: { title: "Account deleted", icon: "trash" },
   "unknown-account": { title: "Refused: unknown account", icon: "warning" },
 };

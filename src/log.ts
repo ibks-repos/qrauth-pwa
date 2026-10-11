@@ -2,7 +2,14 @@
 
 import * as db from "./db";
 
-export type LogKind = "code" | "enrolled" | "replaced" | "removed" | "unknown-account";
+export type LogKind =
+  | "code"
+  | "enrolled"
+  | "replaced"
+  | "confirmed"
+  | "rolled-back"
+  | "removed"
+  | "unknown-account";
 
 export interface LogEntry {
   id?: number;
