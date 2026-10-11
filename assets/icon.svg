@@ -1,0 +1,37 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0.4" y2="1">
+      <stop offset="0" stop-color="#3a8dff"/>
+      <stop offset="0.55" stop-color="#3b5bdb"/>
+      <stop offset="1" stop-color="#2a2f8f"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.3" cy="0.15" r="0.9">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.35"/>
+      <stop offset="0.6" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.38"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.14"/>
+    </linearGradient>
+    <linearGradient id="rim" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.9"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0.15"/>
+      <stop offset="1" stop-color="#ffffff" stop-opacity="0.6"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#glow)"/>
+  <!-- three QR finder patterns as glass tiles -->
+  <g stroke="url(#rim)" stroke-width="6">
+    <rect x="212" y="212" width="250" height="250" rx="64" fill="url(#glass)"/>
+    <rect x="562" y="212" width="250" height="250" rx="64" fill="url(#glass)"/>
+    <rect x="212" y="562" width="250" height="250" rx="64" fill="url(#glass)"/>
+  </g>
+  <g fill="#ffffff">
+    <rect x="282" y="282" width="110" height="110" rx="30"/>
+    <rect x="632" y="282" width="110" height="110" rx="30"/>
+    <rect x="282" y="632" width="110" height="110" rx="30"/>
+  </g>
+  <!-- check mark in the fourth corner: the approved response -->
+  <path d="M590 690 L660 760 L790 600" fill="none" stroke="#ffffff" stroke-width="56" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
